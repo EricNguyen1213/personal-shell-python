@@ -19,7 +19,6 @@ class PersonalShell:
         self.prompter = Prompt()
 
     def run(self) -> None:
-        self.load_history()
         while True:
             child_pids = []
             try:
@@ -100,13 +99,13 @@ class PersonalShell:
                 pid, status = os.waitpid(-1, 0)
                 child_pids.remove(pid)
 
-                # Checks if the Exited Child Process is Forced
-                if (
-                    os.WIFEXITED(status)
-                    and os.WEXITSTATUS(status) == ExitStatus.FORCEEXIT.value
-                ):
-                    # Kills All Child Process Safely and Parent Process
-                    self.terminate_all_cmds(child_pids)
+                # # Checks if the Exited Child Process is Forced
+                # if (
+                #     os.WIFEXITED(status)
+                #     and os.WEXITSTATUS(status) == ExitStatus.FORCEEXIT.value
+                # ):
+                #     # Kills All Child Process Safely and Parent Process
+                #     self.terminate_all_cmds(child_pids)
 
             except ChildProcessError:
                 break
@@ -119,13 +118,3 @@ class PersonalShell:
             except ProcessLookupError:
                 pass
         sys.exit()
-
-    def load_history(self) -> None:
-        try:
-            history_file = os.getenv("HISTFILE")
-            with open(history_file, "r") as file:
-                self.history.extend(
-                    (i, line.strip()) for i, line in enumerate(file, start=1)
-                )
-        except Exception:
-            pass

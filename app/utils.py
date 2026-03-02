@@ -9,7 +9,7 @@ from prompt_toolkit.completion import WordCompleter, Completion
 
 
 class ExitStatus(Enum):
-    FORCEEXIT = 127
+    FORCEEXIT = 0
 
 
 class Commands(Enum):

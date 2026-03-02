@@ -43,6 +43,7 @@ class CommandLibrary:
             Commands.APPEND_FLAG.value: self._append_history,
         }
         self.history_bookmark = 0
+        self._load_histfile()
 
     def find_command(
         self, context: Redirection, cmd: str
@@ -68,7 +69,8 @@ class CommandLibrary:
 
     # exit Command case
     def handle_exit(self, context: Redirection, _) -> CommandResult:
-        os._exit(ExitStatus.FORCEEXIT.value)
+        self._write_to_histfile()
+        sys.exit(ExitStatus.FORCEEXIT.value)
         return PipeCommandResult(context)
 
     # echo Command Case
@@ -112,7 +114,7 @@ class CommandLibrary:
         )
 
     def _read_history(self, file: io.TextIOWrapper) -> None:
-        index = self.history[-1][0] + 1
+        index = len(self.history) + 1
         self.history.extend(
             (i, line.strip()) for i, line in enumerate(file, start=index)
         )
@@ -212,3 +214,19 @@ class CommandLibrary:
                 return PTYCommandResult(context, master_fd, pid, flush=True)
 
         return handler
+
+    def _load_histfile(self) -> None:
+        try:
+            history_file = os.getenv("HISTFILE")
+            with open(history_file, "r") as file:
+                self._read_history(file)
+        except Exception:
+            pass
+
+    def _write_to_histfile(self) -> None:
+        try:
+            history_file = os.getenv("HISTFILE")
+            with open(history_file, "a") as file:
+                self._append_history(file)
+        except Exception:
+            pass
