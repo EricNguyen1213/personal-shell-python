@@ -39,7 +39,7 @@ class CommandLibrary:
         self.history_flags = {
             Commands.READ_FLAG.value: self._read_history,
             Commands.WRITE_FLAG.value: self._write_history,
-            Commands.APPEND_FLAG.value: self._append_history,
+            Commands.APPEND_FLAG.value: self._write_history,
         }
 
     def find_command(
@@ -109,17 +109,15 @@ class CommandLibrary:
             context, stderr=[f"cd: {path_input}: No such file or directory"]
         )
 
-    def _read_history(self, file: io.TextIOWrapper):
+    def _read_history(self, file: io.TextIOWrapper) -> None:
         index = self.history[-1][0] + 1
         for line in file:
             self.history.append((index, line.strip()))
             index += 1
 
-    def _write_history(self):
-        pass
-
-    def _append_history(self):
-        pass
+    def _write_history(self, file: io.TextIOWrapper) -> None:
+        for line in self.history:
+            file.write(f"{line[1]}\n")
 
     # history Command Case
     def handle_history(self, context: Redirection, args: list[str]):
