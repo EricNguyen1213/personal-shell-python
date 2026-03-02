@@ -1,6 +1,6 @@
 import sys, os, shlex, io, re, readline
 from pathlib import Path
-from typing import Iterator, Callable
+from typing import Iterator, Callable, Generator
 from enum import Enum
 from prompt_toolkit import prompt
 from prompt_toolkit.shortcuts import CompleteStyle
@@ -60,20 +60,23 @@ def operator_finder(tokenizer: shlex.shlex) -> Iterator[str]:
             yield token
 
 
-def parse_tokens(user_input: str) -> list[tuple[str, list[str], Redirection]]:
+def parse_tokens(
+    user_input: str,
+) -> Generator[tuple[tuple[str, list[str], Redirection], bool], None, None]:
     input_stream = io.StringIO(user_input)
     tokenizer = shlex.shlex(input_stream, posix=True, punctuation_chars="|")
     tokenizer.whitespace_split = True
     final_tokenizer = operator_finder(tokenizer)
 
-    pipe_sections = []
+    is_piped = False
     cmdline, redirects, channels = [], [], {}
 
     while token := next(final_tokenizer, ""):
         # Define a Section of the Pipeline
         if token == "|":
             cmd, *args = cmdline
-            pipe_sections.append((cmd, args, Redirection(redirects, channels, True)))
+            is_piped = True
+            yield ((cmd, args, Redirection(redirects, channels, is_piped)), False)
             cmdline, redirects, channels = [], [], {}
             continue
 
@@ -97,8 +100,7 @@ def parse_tokens(user_input: str) -> list[tuple[str, list[str], Redirection]]:
         channels[op_configs[0]] = (channel_name, op_configs[1])
 
     cmd, *args = cmdline
-    is_piped = len(pipe_sections) > 0
-    return pipe_sections, (cmd, args, Redirection(redirects, channels, is_piped))
+    yield ((cmd, args, Redirection(redirects, channels, is_piped)), True)
 
 
 def setup_pipes(

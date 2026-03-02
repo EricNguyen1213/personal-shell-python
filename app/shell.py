@@ -28,16 +28,20 @@ class PersonalShell:
                     continue
 
                 # Each Pipe Section is Executed on Child Process
-                pipe_sections, last_cmdline = parse_tokens(user_input)
+                pipe_sections = parse_tokens(user_input)
                 stdin_pipe = None
-                for cmdline in pipe_sections:
+                while section := next(pipe_sections, None):
+                    cmdline, is_last = section
+                    if is_last:
+                        break
+
                     stdin_pipe, pid = self.execute_cmdline_pipe(
                         user_input, cmdline, stdin_pipe
                     )
                     child_pids.append(pid)
 
                 # Execute Last Command Line On Parent Process
-                self.execute_last_cmdline(user_input, last_cmdline, stdin_pipe)
+                self.execute_last_cmdline(user_input, cmdline, stdin_pipe)
 
             except KeyboardInterrupt:
                 break
@@ -49,12 +53,12 @@ class PersonalShell:
         self,
         user_input: str,
         cmdline: tuple[str, list[str], Redirection],
-        stdin_pipe: io.TextIOWrapper,
+        stdin_pipe: io.TextIOWrapper | None,
     ) -> None:
         cmd, args, context = cmdline
         context.set_input(stdin_pipe)
         command_func = self.cmd_lib.find_command(context, cmd, user_input)
-        self.execute(command_func, args, context.close)
+        self.execute(command_func, args, context.close, "master")
 
     def execute_cmdline_pipe(
         self,
@@ -62,11 +66,11 @@ class PersonalShell:
         cmdline: tuple[str, list[str], Redirection],
         stdin_pipe: io.TextIOWrapper,
     ) -> tuple[io.TextIOWrapper, int]:
+
         cmd, args, context = cmdline
         stdin_pipe = setup_pipes(context, stdin_pipe)
         # Search Command Library for Correct Function To Use
         command_func = self.cmd_lib.find_command(context, cmd, user_input)
-
         pid = os.fork()
         if pid == 0:
             # Only Child Process Do Commands of Piped Sections
@@ -82,6 +86,7 @@ class PersonalShell:
         command_func: Callable[[list[str]], CommandResult],
         args: list[str],
         closure: Callable[[], None],
+        type: str = "child",
     ) -> None:
         # Allow The Closing of Output Files Even With Crashes
         try:

@@ -109,9 +109,9 @@ class CommandLibrary:
         self, context: Redirection, cmd: str
     ) -> Callable[[list[str]], CommandResult]:
 
-        global TEST_NUM
+        # global TEST_NUM
         # print(f"{TEST_NUM}: {context.input_file}")
-        TEST_NUM += 1
+        # TEST_NUM += 1
 
         # Redirection to different file case, Use different pipes for output and error stream of process
         def handler(args: list[str]) -> CommandResult:
