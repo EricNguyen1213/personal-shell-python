@@ -26,13 +26,15 @@ def find_which_path(fn: str) -> str | None:
 
 
 class CommandLibrary:
-    def __init__(self) -> None:
+    def __init__(self, history: list[str]) -> None:
+        self.history = history
         self.command_lib = {
             Commands.EXIT.value: self.handle_exit,
             Commands.ECHO.value: self.handle_echo,
             Commands.TYPE.value: self.handle_type,
             Commands.PWD.value: self.handle_pwd,
             Commands.CD.value: self.handle_cd,
+            Commands.HISTORY.value: self.handle_history,
         }
 
     def find_command(
@@ -74,21 +76,21 @@ class CommandLibrary:
         for arg in args:
             # Argument is Actual Command
             if arg in self.command_lib:
-                result.append(f"{arg} is a shell builtin")
+                result.append(f"{arg} is a shell builtin\n")
                 continue
 
             found_file_path = find_which_path(arg)
             if found_file_path:
-                result.append(f"{arg} is {found_file_path}")
+                result.append(f"{arg} is {found_file_path}\n")
             else:
-                result.append(f"{arg} not found")
+                result.append(f"{arg} not found\n")
         return PipeCommandResult(context, stdout=result)
 
-    # pwd Case
+    # pwd Command Case
     def handle_pwd(self, context: Redirection, _) -> CommandResult:
         return PipeCommandResult(context, stdout=[os.getcwd()])
 
-    # cd case
+    # cd Command Case
     def handle_cd(self, context: Redirection, args: list[str]) -> CommandResult:
         if len(args) > 1:
             return PipeCommandResult(context, stderr=["cd: too many arguments"])
@@ -103,6 +105,11 @@ class CommandLibrary:
         return PipeCommandResult(
             context, stderr=[f"cd: {path_input}: No such file or directory"]
         )
+
+    # history Command Case
+    def handle_history(self, context: Redirection, _):
+        history_list = [f"    {i}  {cmd}\n" for i, cmd in self.history]
+        return PipeCommandResult(context, stdout=history_list)
 
     # Custom Or Not Found Exec Case
     def handle_custom_exec_pipe(

@@ -1,4 +1,5 @@
 import sys, os, io, signal
+from itertools import count
 from typing import Callable
 from app.cmd_lib import CommandLibrary
 from app.cmd_result import CommandResult
@@ -14,14 +15,17 @@ from app.utils import (
 
 class PersonalShell:
     def __init__(self) -> None:
-        self.cmd_lib = CommandLibrary()
+        self.history = []
+        self.cmd_lib = CommandLibrary(self.history)
         self.prompter = Prompt()
 
     def run(self) -> None:
-        while True:
+
+        for i in count(1):
             child_pids = []
             try:
                 user_input = self.prompter.ask()
+                self.history.append((i, user_input))
 
                 # User Input Does Not Exist Case
                 if not user_input:

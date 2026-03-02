@@ -1,4 +1,5 @@
-import sys, os, shlex, io, re, readline
+import sys, os, shlex, io, re
+import readline
 from pathlib import Path
 from typing import Iterator, Callable, Generator
 from enum import Enum
@@ -17,6 +18,7 @@ class Commands(Enum):
     TYPE = "type"
     PWD = "pwd"
     CD = "cd"
+    HISTORY = "history"
 
     @classmethod
     def get_commands(cls) -> list[str]:
