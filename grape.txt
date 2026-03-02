@@ -1,0 +1,12 @@
+echo pear mango
+echo banana pineapple grapepwd
+echo apple strawberry
+echo mango orange
+echo raspberry orange pear
+history -a grape.txt
+echo apple strawberry
+echo mango orange
+echo raspberry orange pear
+history -a grape.txt
+echo orange blueberry pear
+history -a grape.txt

@@ -27,7 +27,6 @@ def find_which_path(fn: str) -> str | None:
 
 class CommandLibrary:
     def __init__(self, history: list[str]) -> None:
-        self.history = history
         self.command_lib = {
             Commands.EXIT.value: self.handle_exit,
             Commands.ECHO.value: self.handle_echo,
@@ -36,11 +35,14 @@ class CommandLibrary:
             Commands.CD.value: self.handle_cd,
             Commands.HISTORY.value: self.handle_history,
         }
+
+        self.history = history
         self.history_flags = {
             Commands.READ_FLAG.value: self._read_history,
             Commands.WRITE_FLAG.value: self._write_history,
-            Commands.APPEND_FLAG.value: self._write_history,
+            Commands.APPEND_FLAG.value: self._append_history,
         }
+        self.history_bookmark = 0
 
     def find_command(
         self, context: Redirection, cmd: str
@@ -118,6 +120,11 @@ class CommandLibrary:
     def _write_history(self, file: io.TextIOWrapper) -> None:
         for line in self.history:
             file.write(f"{line[1]}\n")
+
+    def _append_history(self, file: io.TextIOWrapper) -> None:
+        for i in range(self.history_bookmark, len(self.history)):
+            file.write(f"{self.history[i][1]}\n")
+        self.history_bookmark = len(self.history)
 
     # history Command Case
     def handle_history(self, context: Redirection, args: list[str]):
