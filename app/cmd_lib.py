@@ -107,8 +107,14 @@ class CommandLibrary:
         )
 
     # history Command Case
-    def handle_history(self, context: Redirection, _):
-        history_list = [f"    {i}  {cmd}\n" for i, cmd in self.history]
+    def handle_history(self, context: Redirection, limit: list[str]):
+        if limit:
+            history_list = []
+            for i in range(len(self.history) - int(limit[0]), len(self.history)):
+                item = self.history[i]
+                history_list.append(f"    {item[0]}  {item[1]}\n")
+        else:
+            history_list = [f"    {i}  {cmd}\n" for i, cmd in self.history]
         return PipeCommandResult(context, stdout=history_list)
 
     # Custom Or Not Found Exec Case
