@@ -17,6 +17,7 @@ class PersonalShell:
         self.history = []
         self.cmd_lib = CommandLibrary(self.history)
         self.prompter = Prompt()
+        self.load_history()
 
     def run(self) -> None:
         while True:
@@ -118,3 +119,13 @@ class PersonalShell:
             except ProcessLookupError:
                 pass
         sys.exit()
+
+    def load_history(self) -> None:
+        try:
+            history_file = os.getenv("HISTFILE")
+            with open(history_file, "r") as file:
+                self.history.extend(
+                    (i, line.strip()) for i, line in enumerate(file, start=1)
+                )
+        except Exception:
+            pass

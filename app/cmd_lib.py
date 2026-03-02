@@ -113,9 +113,9 @@ class CommandLibrary:
 
     def _read_history(self, file: io.TextIOWrapper) -> None:
         index = self.history[-1][0] + 1
-        for line in file:
-            self.history.append((index, line.strip()))
-            index += 1
+        self.history.extend(
+            (i, line.strip()) for i, line in enumerate(file, start=index)
+        )
 
     def _write_history(self, file: io.TextIOWrapper) -> None:
         for line in self.history:
