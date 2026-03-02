@@ -1,5 +1,4 @@
 import sys, os, io, signal
-from itertools import count
 from typing import Callable
 from app.cmd_lib import CommandLibrary
 from app.cmd_result import CommandResult
@@ -20,12 +19,11 @@ class PersonalShell:
         self.prompter = Prompt()
 
     def run(self) -> None:
-
-        for i in count(1):
+        while True:
             child_pids = []
             try:
                 user_input = self.prompter.ask()
-                self.history.append((i, user_input))
+                self.history.append((len(self.history) + 1, user_input))
 
                 # User Input Does Not Exist Case
                 if not user_input:
@@ -39,13 +37,11 @@ class PersonalShell:
                     if is_last:
                         break
 
-                    stdin_pipe, pid = self.execute_cmdline_pipe(
-                        user_input, cmdline, stdin_pipe
-                    )
+                    stdin_pipe, pid = self.execute_cmdline_pipe(cmdline, stdin_pipe)
                     child_pids.append(pid)
 
                 # Execute Last Command Line On Parent Process
-                self.execute_last_cmdline(user_input, cmdline, stdin_pipe)
+                self.execute_last_cmdline(cmdline, stdin_pipe)
 
             except KeyboardInterrupt:
                 break
@@ -55,26 +51,23 @@ class PersonalShell:
 
     def execute_last_cmdline(
         self,
-        user_input: str,
         cmdline: tuple[str, list[str], Redirection],
         stdin_pipe: io.TextIOWrapper | None,
     ) -> None:
         cmd, args, context = cmdline
         context.set_input(stdin_pipe)
-        command_func = self.cmd_lib.find_command(context, cmd, user_input)
+        command_func = self.cmd_lib.find_command(context, cmd)
         self.execute(command_func, args, context.close, "master")
 
     def execute_cmdline_pipe(
         self,
-        user_input: str,
         cmdline: tuple[str, list[str], Redirection],
         stdin_pipe: io.TextIOWrapper,
     ) -> tuple[io.TextIOWrapper, int]:
-
         cmd, args, context = cmdline
         stdin_pipe = setup_pipes(context, stdin_pipe)
         # Search Command Library for Correct Function To Use
-        command_func = self.cmd_lib.find_command(context, cmd, user_input)
+        command_func = self.cmd_lib.find_command(context, cmd)
         pid = os.fork()
         if pid == 0:
             # Only Child Process Do Commands of Piped Sections

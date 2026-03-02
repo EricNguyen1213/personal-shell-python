@@ -36,9 +36,14 @@ class CommandLibrary:
             Commands.CD.value: self.handle_cd,
             Commands.HISTORY.value: self.handle_history,
         }
+        self.history_flags = {
+            Commands.READ_FLAG.value: self._read_history,
+            Commands.WRITE_FLAG.value: self._write_history,
+            Commands.APPEND_FLAG.value: self._append_history,
+        }
 
     def find_command(
-        self, context: Redirection, cmd: str, user_input: str
+        self, context: Redirection, cmd: str
     ) -> Callable[[list[str]], CommandResult]:
 
         if command_func := self.command_lib.get(cmd, None):
@@ -47,18 +52,16 @@ class CommandLibrary:
 
         # Search for Custom Command Case
         if not find_which_path(cmd):
-            return self.not_found(context, user_input)
+            return self.not_found(context)
 
         if context.is_redirected():
             return self.handle_custom_exec_pipe(context, cmd)
         return self.handle_custom_exec_pty(context, cmd)
 
     # Command Not Found Case
-    def not_found(
-        self, context: Redirection, user_input: str
-    ) -> Callable[[list[str]], CommandResult]:
+    def not_found(self, context: Redirection) -> Callable[[list[str]], CommandResult]:
         return lambda _: PipeCommandResult(
-            context, stderr=[f"{user_input}: command not found"]
+            context, stderr=[f"{self.history[-1][1]}: command not found"]
         )
 
     # exit Command case
@@ -106,16 +109,49 @@ class CommandLibrary:
             context, stderr=[f"cd: {path_input}: No such file or directory"]
         )
 
+    def _read_history(self, file: io.TextIOWrapper):
+        index = self.history[-1][0] + 1
+        for line in file:
+            self.history.append((index, line.strip()))
+            index += 1
+
+    def _write_history(self):
+        pass
+
+    def _append_history(self):
+        pass
+
     # history Command Case
-    def handle_history(self, context: Redirection, limit: list[str]):
-        if limit:
-            history_list = []
-            for i in range(len(self.history) - int(limit[0]), len(self.history)):
-                item = self.history[i]
-                history_list.append(f"    {item[0]}  {item[1]}\n")
-        else:
+    def handle_history(self, context: Redirection, args: list[str]):
+        if not args:
             history_list = [f"    {i}  {cmd}\n" for i, cmd in self.history]
-        return PipeCommandResult(context, stdout=history_list)
+            return PipeCommandResult(context, stdout=history_list)
+
+        flag, history_list, stderr = args[0], [], []
+        match flag:
+            case (
+                Commands.READ_FLAG.value
+                | Commands.WRITE_FLAG.value
+                | Commands.APPEND_FLAG.value
+            ):
+                interact_file = self.history_flags.get(flag)
+                try:
+                    file_path = args[1]
+                    with open(file_path, flag[1]) as f:
+                        interact_file(f)
+                except Exception:
+                    stderr.append("history: No File Path Found")
+
+            case str() if flag.isdigit():
+                limit = int(flag)
+                for i in range(len(self.history) - limit, len(self.history)):
+                    index, cmdline = self.history[i]
+                    history_list.append(f"    {index}  {cmdline}\n")
+
+            case _:
+                stderr.append(f"history: Invalid Input: {flag}")
+
+        return PipeCommandResult(context, stdout=history_list, stderr=stderr)
 
     # Custom Or Not Found Exec Case
     def handle_custom_exec_pipe(

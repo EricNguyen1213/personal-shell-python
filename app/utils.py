@@ -19,6 +19,9 @@ class Commands(Enum):
     PWD = "pwd"
     CD = "cd"
     HISTORY = "history"
+    READ_FLAG = "-r"
+    WRITE_FLAG = "-w"
+    APPEND_FLAG = "-a"
 
     @classmethod
     def get_commands(cls) -> list[str]:
