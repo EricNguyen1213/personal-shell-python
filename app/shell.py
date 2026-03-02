@@ -17,9 +17,9 @@ class PersonalShell:
         self.history = []
         self.cmd_lib = CommandLibrary(self.history)
         self.prompter = Prompt()
-        self.load_history()
 
     def run(self) -> None:
+        self.load_history()
         while True:
             child_pids = []
             try:
