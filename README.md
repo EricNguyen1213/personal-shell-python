@@ -32,3 +32,10 @@ Note: This section is for stages 2 and beyond.
    `app/main.py`.
 1. Commit your changes and run `git push origin master` to submit your solution
    to CodeCrafters. Test output will be streamed to your terminal.
+
+
+Added Notes:
+- Take a Look at the Increase in Memory from Pipelines
+   - cat hi.txt | cat > output.txt | cat > output2.txt
+   - Causes Redirection & Subprocess Memory Usage to Increase Every Iteration of Pipeline Command
+

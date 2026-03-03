@@ -39,6 +39,7 @@ class Redirection:
         self.close_input()
         self.close_output()
         self.close_error()
+        self.input_file = self.output_file = self.error_file = None
 
     def is_redirected(self) -> bool:
         return self.is_piped or not (
@@ -62,6 +63,7 @@ class Redirection:
     def close_input(self):
         self._close_input()
         self._close_input = lambda: None
+        self.input_file = None
 
     def setup_pipes(self, prev_stdin_pipe: io.TextIOWrapper | None) -> io.TextIOWrapper:
         # Setting stdin of Current Pipe Section

@@ -70,6 +70,9 @@ class PipeCommandResult(CommandResult):
             self.process.wait()
             self.stdout.close()
             self.stderr.close()
+        else:
+            self.stdout.clear()
+            self.stderr.clear()
 
 
 class PTYCommandResult(CommandResult):
