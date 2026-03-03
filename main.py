@@ -1,5 +1,5 @@
 import tracemalloc, os
-from .app import PersonalShell
+from app import PersonalShell
 
 
 def main():
