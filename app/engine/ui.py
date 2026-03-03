@@ -75,8 +75,7 @@ class ReadlinePrompt(Prompt):
                     f"{possibilities[state]} " if state < len(possibilities) else None
                 )
 
-            path = Path(text)
-            search_dir = path if path.is_dir() else path.parent
+            search_dir = Path(text) if text.endswith(os.sep) else Path(text).parent
             prefix_index, prefix, name = text.rfind(os.sep), "", text
             if prefix_index >= 0:
                 prefix, name = text[: prefix_index + 1], text[prefix_index + 1 :]
@@ -85,7 +84,7 @@ class ReadlinePrompt(Prompt):
                 if not item.name.startswith(name):
                     continue
                 if item.is_dir():
-                    possibilities.append(f"{prefix}{item.name}/")
+                    possibilities.append(f"{prefix}{item.name}{os.sep}")
                 elif item.is_file():
                     possibilities.append(f"{prefix}{item.name} ")
 
