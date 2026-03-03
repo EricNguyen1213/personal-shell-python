@@ -22,8 +22,8 @@ from abc import ABC, abstractmethod
 
 
 class Prompt(ABC):
-    def __init__(self, cmd_list: list[str]):
-        self.cmd_list = cmd_list
+    def __init__(self, cmd_provider: Callable[[], list[str]]):
+        self._get_cmds = cmd_provider
         self.last_path = os.environ.get("PATH", "")
 
     @abstractmethod
@@ -38,7 +38,7 @@ class Prompt(ABC):
     def check_and_refresh(self) -> None:
         current_path = os.environ.get("PATH", "")
         if self.last_path != current_path:
-            self.cmdline_completer = self.completer_generator(self.cmd_list)
+            self.cmdline_completer = self.completer_generator(self._get_cmds())
             self.last_path = current_path
 
 
@@ -61,7 +61,9 @@ class Prompt(ABC):
 class ReadlinePrompt(Prompt):
     def __init__(self, cmd_list: list[str]):
         super().__init__(cmd_list)
-        self.cmdline_completer = self.completer_generator(cmd_list)
+        self.cmdline_completer = self.completer_generator(self._get_cmds())
+        self.cached_possibilities = []
+        self.cached_input = ""
 
         # Parse and Bind Tab Button based on OS system, Mac or Linux
         readline.set_completer(self.cmdline_completer)
@@ -73,14 +75,25 @@ class ReadlinePrompt(Prompt):
 
     def completer_generator(self, cmds: list[str]):
         def cmdline_completer(text, state):
-            possibilities = []
+            if text == self.cached_input and self.cached_possibilities:
+                return (
+                    self.cached_possibilities[state]
+                    if state < len(self.cached_possibilities)
+                    else None
+                )
+            self.cached_input = text
+            self.cached_possibilities = []
             current_line = readline.get_line_buffer()
             before_word = current_line[: readline.get_begidx()].rstrip()
 
             if before_word == "" or before_word.endswith("|"):
-                possibilities = [cmd for cmd in cmds if cmd.startswith(text)]
+                self.cached_possibilities = [
+                    f"{cmd} " for cmd in cmds if cmd.startswith(text)
+                ]
                 return (
-                    f"{possibilities[state]} " if state < len(possibilities) else None
+                    self.cached_possibilities[state]
+                    if state < len(self.cached_possibilities)
+                    else None
                 )
 
             search_dir = Path(text) if text.endswith(os.sep) else Path(text).parent
@@ -92,11 +105,15 @@ class ReadlinePrompt(Prompt):
                 if not item.name.startswith(name):
                     continue
                 if item.is_dir():
-                    possibilities.append(f"{prefix}{item.name}{os.sep}")
+                    self.cached_possibilities.append(f"{prefix}{item.name}{os.sep}")
                 elif item.is_file():
-                    possibilities.append(f"{prefix}{item.name} ")
+                    self.cached_possibilities.append(f"{prefix}{item.name} ")
 
-            return possibilities[state] if state < len(possibilities) else None
+            return (
+                self.cached_possibilities[state]
+                if state < len(self.cached_possibilities)
+                else None
+            )
 
         return cmdline_completer
 

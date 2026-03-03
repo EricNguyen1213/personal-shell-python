@@ -65,6 +65,7 @@ class PipeCommandResult(CommandResult):
         # 3. Cleanup
         err_thread.join()
         del err_thread
+        self.context = None
         if self.process:
             self.process.wait()
             self.stdout.close()
@@ -113,7 +114,10 @@ class PTYCommandResult(CommandResult):
                     break
 
                 # Sends Keyboard data to Master FD
-                os.write(self.master_fd, data)
+                try:
+                    os.write(self.master_fd, data)
+                except Exception:
+                    pass
 
     def output(self) -> None:
         old_configs = termios.tcgetattr(sys.stdin.fileno())

@@ -1,4 +1,4 @@
-import sys, os, io, signal
+import sys, os, io, signal, gc
 from typing import Callable
 from .cmd_lib import CommandLibrary, Commands
 from .cmd_result import CommandResult
@@ -9,8 +9,7 @@ class PersonalShell:
     def __init__(self) -> None:
         self.history = []
         self.cmd_lib = CommandLibrary(self.history)
-        self.cmd_list = Commands.get_commands()
-        self.prompter = ReadlinePrompt(self.cmd_list)
+        self.prompter = ReadlinePrompt(Commands.get_commands)
 
     def run(self) -> None:
         while True:
@@ -42,6 +41,7 @@ class PersonalShell:
 
             finally:
                 self.clean_cmds(child_pids)
+                self.prompter.check_and_refresh()
 
     def execute_last_cmdline(
         self,
@@ -52,6 +52,7 @@ class PersonalShell:
         context.set_input(stdin_pipe)
         command_func = self.cmd_lib.find_command(context, cmd)
         self.execute(command_func, args, context.close)
+        context = None
 
     def execute_cmdline_pipe(
         self,
@@ -69,6 +70,7 @@ class PersonalShell:
             self.execute(command_func, args, context.close_child_pipes(stdin_pipe))
         else:
             context.close()
+            context = None
             return stdin_pipe, pid
 
     def execute(
@@ -81,10 +83,12 @@ class PersonalShell:
         try:
             result = command_func(args)
             result.output()
+            result = None
         finally:
             closure()
 
     def clean_cmds(self, child_pids: list[int]) -> None:
+        is_piped = len(child_pids) > 1
         while True:
             try:
                 # Waits for Any Child Process Exit, Nonblockingly
@@ -101,6 +105,9 @@ class PersonalShell:
 
             except ChildProcessError:
                 break
+        child_pids.clear()
+        if is_piped:
+            gc.collect()
 
     def terminate_all_cmds(self, child_pids: list[int]) -> None:
         # Loops through Child PIDs and kill them safely
