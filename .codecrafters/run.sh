@@ -6,6 +6,12 @@
 #
 # Learn more: https://codecrafters.io/program-interface
 
-set -e # Exit on failure
+set -e
 
-exec uv run --quiet -m app.main "$@"
+SCRIPT_DIR="$(dirname "$0")"
+
+PYTHONSAFEPATH=1 PYTHONPATH="$SCRIPT_DIR" exec uv run \
+  --project "$SCRIPT_DIR" \
+  --quiet \
+  -m app.main \
+  "$@"
