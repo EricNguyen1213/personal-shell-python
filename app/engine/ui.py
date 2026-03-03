@@ -22,8 +22,8 @@ from abc import ABC, abstractmethod
 
 
 class Prompt(ABC):
-    def __init__(self, command_provider: Callable[[], list[str]]):
-        self._get_commands = command_provider
+    def __init__(self, cmd_list: list[str]):
+        self.cmd_list = cmd_list
         self.last_path = os.environ.get("PATH", "")
 
     @abstractmethod
@@ -38,7 +38,7 @@ class Prompt(ABC):
     def check_and_refresh(self) -> None:
         current_path = os.environ.get("PATH", "")
         if self.last_path != current_path:
-            self.cmdline_completer = self.completer_generator(self._get_commands())
+            self.cmdline_completer = self.completer_generator(self.cmd_list)
             self.last_path = current_path
 
 
@@ -59,11 +59,19 @@ class Prompt(ABC):
 
 
 class ReadlinePrompt(Prompt):
-    def __init__(self, command_provider: Callable[[], list[str]]):
-        super().__init__(command_provider)
-        self.cmdline_completer = self.completer_generator(self._get_commands())
+    def __init__(self, cmd_list: list[str]):
+        super().__init__(cmd_list)
+        self.cmdline_completer = self.completer_generator(cmd_list)
 
-    def completer_generator(self, cmds: list[str]) -> ShellCompleter:
+        # Parse and Bind Tab Button based on OS system, Mac or Linux
+        readline.set_completer(self.cmdline_completer)
+        readline.set_completer_delims(readline.get_completer_delims().replace("/", ""))
+        if "libedit" in readline.__doc__:
+            readline.parse_and_bind("bind ^I rl_complete")
+        else:
+            readline.parse_and_bind("tab: complete")
+
+    def completer_generator(self, cmds: list[str]):
         def cmdline_completer(text, state):
             possibilities = []
             current_line = readline.get_line_buffer()
@@ -93,12 +101,4 @@ class ReadlinePrompt(Prompt):
         return cmdline_completer
 
     def ask(self) -> str:
-        # Parse and Bind Tab Button based on OS system, Mac or Linux
-        readline.set_completer(self.cmdline_completer)
-        readline.set_completer_delims(readline.get_completer_delims().replace("/", ""))
-        if "libedit" in readline.__doc__:
-            readline.parse_and_bind("bind ^I rl_complete")
-        else:
-            readline.parse_and_bind("tab: complete")
-
         return input("$ ")

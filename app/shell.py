@@ -9,7 +9,8 @@ class PersonalShell:
     def __init__(self) -> None:
         self.history = []
         self.cmd_lib = CommandLibrary(self.history)
-        self.prompter = ReadlinePrompt(Commands.get_commands)
+        self.cmd_list = Commands.get_commands()
+        self.prompter = ReadlinePrompt(self.cmd_list)
 
     def run(self) -> None:
         while True:
