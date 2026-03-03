@@ -1,22 +1,15 @@
 import sys, os, io, signal
 from typing import Callable
-from app.cmd_lib import CommandLibrary
-from app.cmd_result import CommandResult
-from app.utils import (
-    ExitStatus,
-    Redirection,
-    Prompt,
-    parse_tokens,
-    setup_pipes,
-    close_child_pipes,
-)
+from .cmd_lib import CommandLibrary, Commands
+from .cmd_result import CommandResult
+from .engine import Redirection, Prompt, parse_tokens
 
 
 class PersonalShell:
     def __init__(self) -> None:
         self.history = []
         self.cmd_lib = CommandLibrary(self.history)
-        self.prompter = Prompt()
+        self.prompter = Prompt(Commands.get_commands)
 
     def run(self) -> None:
         while True:
@@ -57,7 +50,7 @@ class PersonalShell:
         cmd, args, context = cmdline
         context.set_input(stdin_pipe)
         command_func = self.cmd_lib.find_command(context, cmd)
-        self.execute(command_func, args, context.close, "master")
+        self.execute(command_func, args, context.close)
 
     def execute_cmdline_pipe(
         self,
@@ -65,15 +58,14 @@ class PersonalShell:
         stdin_pipe: io.TextIOWrapper,
     ) -> tuple[io.TextIOWrapper, int]:
         cmd, args, context = cmdline
-        stdin_pipe = setup_pipes(context, stdin_pipe)
+        stdin_pipe = context.setup_pipes(stdin_pipe)
+
         # Search Command Library for Correct Function To Use
         command_func = self.cmd_lib.find_command(context, cmd)
         pid = os.fork()
         if pid == 0:
             # Only Child Process Do Commands of Piped Sections
-            self.execute(
-                command_func, args, lambda: close_child_pipes(context, stdin_pipe)
-            )
+            self.execute(command_func, args, context.close_child_pipes(stdin_pipe))
         else:
             context.close()
             return stdin_pipe, pid
@@ -83,7 +75,6 @@ class PersonalShell:
         command_func: Callable[[list[str]], CommandResult],
         args: list[str],
         closure: Callable[[], None],
-        type: str = "child",
     ) -> None:
         # Allow The Closing of Output Files Even With Crashes
         try:

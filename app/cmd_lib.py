@@ -1,12 +1,39 @@
 import sys, os, subprocess, io
-from app.utils import ExitStatus, Commands, Redirection
 from pathlib import Path
 from typing import Callable
-from app.cmd_result import CommandResult, PipeCommandResult, PTYCommandResult
+from enum import Enum
+from .engine import Redirection, Channel
+from .cmd_result import CommandResult, PipeCommandResult, PTYCommandResult
 
 
 DEFAULT_TERM = "xterm-256color"
 TEST_NUM = 0
+
+
+class ExitStatus(Enum):
+    FORCEEXIT = 0
+
+
+class Commands(Enum):
+    EXIT = "exit"
+    ECHO = "echo"
+    TYPE = "type"
+    PWD = "pwd"
+    CD = "cd"
+    HISTORY = "history"
+
+    @classmethod
+    def get_commands(cls) -> list[str]:
+        commands = {cmd.value for cmd in cls}
+        for path in os.getenv("PATH", "").split(os.pathsep):
+            try:
+                with os.scandir(path) as entries:
+                    for item in entries:
+                        if item.is_file() and os.access(item.path, os.X_OK):
+                            commands.add(item.name)
+            except (OSError, PermissionError):
+                continue
+        return list(commands)
 
 
 def find_which_path(fn: str) -> str | None:
@@ -28,20 +55,19 @@ def find_which_path(fn: str) -> str | None:
 class CommandLibrary:
     def __init__(self, history: list[str]) -> None:
         self.command_lib = {
-            Commands.EXIT.value: self.handle_exit,
-            Commands.ECHO.value: self.handle_echo,
-            Commands.TYPE.value: self.handle_type,
-            Commands.PWD.value: self.handle_pwd,
-            Commands.CD.value: self.handle_cd,
-            Commands.HISTORY.value: self.handle_history,
+            Commands.EXIT: self.handle_exit,
+            Commands.ECHO: self.handle_echo,
+            Commands.TYPE: self.handle_type,
+            Commands.PWD: self.handle_pwd,
+            Commands.CD: self.handle_cd,
+            Commands.HISTORY: self.handle_history,
         }
-
-        self.history = history
         self.history_flags = {
-            Commands.READ_FLAG.value: self._read_history,
-            Commands.WRITE_FLAG.value: self._write_history,
-            Commands.APPEND_FLAG.value: self._append_history,
+            Channel.READ_MODE: self._read_history,
+            Channel.WRITE_MODE: self._write_history,
+            Channel.APPEND_MODE: self._append_history,
         }
+        self.history = history
         self.history_bookmark = 0
         self._load_histfile()
 
@@ -49,17 +75,20 @@ class CommandLibrary:
         self, context: Redirection, cmd: str
     ) -> Callable[[list[str]], CommandResult]:
 
-        if command_func := self.command_lib.get(cmd, None):
+        try:
+            # Try Builtin Command Case
+            command_func = self.command_lib.get(Commands(cmd), None)
             context.close_input()
             return lambda args: command_func(context, args)
 
-        # Search for Custom Command Case
-        if not find_which_path(cmd):
-            return self.not_found(context)
+        except ValueError:
+            # Search for Custom Command Case
+            if not find_which_path(cmd):
+                return self.not_found(context)
 
-        if context.is_redirected():
-            return self.handle_custom_exec_pipe(context, cmd)
-        return self.handle_custom_exec_pty(context, cmd)
+            if context.is_redirected():
+                return self.handle_custom_exec_pipe(context, cmd)
+            return self.handle_custom_exec_pty(context, cmd)
 
     # Command Not Found Case
     def not_found(self, context: Redirection) -> Callable[[list[str]], CommandResult]:
@@ -81,16 +110,20 @@ class CommandLibrary:
     def handle_type(self, context: Redirection, args: list[str]) -> CommandResult:
         result = []
         for arg in args:
-            # Argument is Actual Command
-            if arg in self.command_lib:
-                result.append(f"{arg} is a shell builtin\n")
+            try:
+                # Argument is Actual Command
+                result.append(f"{Commands(arg).value} is a shell builtin\n")
                 continue
 
-            found_file_path = find_which_path(arg)
-            if found_file_path:
-                result.append(f"{arg} is {found_file_path}\n")
-            else:
-                result.append(f"{arg} not found\n")
+            except ValueError:
+                found_file_path = find_which_path(arg)
+                if found_file_path:
+                    # Argument is File Object
+                    result.append(f"{arg} is {found_file_path}\n")
+                else:
+                    # Argument is Invalid
+                    result.append(f"{arg} not found\n")
+
         return PipeCommandResult(context, stdout=result)
 
     # pwd Command Case
@@ -113,21 +146,6 @@ class CommandLibrary:
             context, stderr=[f"cd: {path_input}: No such file or directory"]
         )
 
-    def _read_history(self, file: io.TextIOWrapper) -> None:
-        index = len(self.history) + 1
-        self.history.extend(
-            (i, line.strip()) for i, line in enumerate(file, start=index)
-        )
-
-    def _write_history(self, file: io.TextIOWrapper) -> None:
-        for line in self.history:
-            file.write(f"{line[1]}\n")
-
-    def _append_history(self, file: io.TextIOWrapper) -> None:
-        for i in range(self.history_bookmark, len(self.history)):
-            file.write(f"{self.history[i][1]}\n")
-        self.history_bookmark = len(self.history)
-
     # history Command Case
     def handle_history(self, context: Redirection, args: list[str]):
         if not args:
@@ -136,12 +154,8 @@ class CommandLibrary:
 
         flag, history_list, stderr = args[0], [], []
         match flag:
-            case (
-                Commands.READ_FLAG.value
-                | Commands.WRITE_FLAG.value
-                | Commands.APPEND_FLAG.value
-            ):
-                interact_file = self.history_flags.get(flag)
+            case "-r" | "-w" | "-a":
+                interact_file = self.history_flags.get(Channel(flag[1]))
                 try:
                     file_path = args[1]
                     with open(file_path, flag[1]) as f:
@@ -215,14 +229,35 @@ class CommandLibrary:
 
         return handler
 
+    # Read from File to Saved History
+    def _read_history(self, file: io.TextIOWrapper) -> None:
+        index = len(self.history) + 1
+        self.history.extend(
+            (i, line.strip()) for i, line in enumerate(file, start=index) if line
+        )
+
+    # Write to File Saved History
+    def _write_history(self, file: io.TextIOWrapper) -> None:
+        for line in self.history:
+            file.write(f"{line[1]}\n")
+
+    # Append To File Saved History
+    def _append_history(self, file: io.TextIOWrapper) -> None:
+        for i in range(self.history_bookmark, len(self.history)):
+            file.write(f"{self.history[i][1]}\n")
+        self.history_bookmark = len(self.history)
+
+    # Load From History File Env
     def _load_histfile(self) -> None:
         try:
             history_file = os.getenv("HISTFILE")
             with open(history_file, "r") as file:
                 self._read_history(file)
+            self.history_bookmark = len(self.history)
         except Exception:
             pass
 
+    # Write to History File Env
     def _write_to_histfile(self) -> None:
         try:
             history_file = os.getenv("HISTFILE")

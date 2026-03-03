@@ -1,5 +1,5 @@
 import sys, os, threading, termios, io, tty, select, gc, subprocess
-from app.utils import Redirection
+from .engine import Redirection
 from typing import Iterable, TextIO
 from abc import ABC, abstractmethod
 
