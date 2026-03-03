@@ -15,6 +15,9 @@ class CommandResult(ABC):
         self.context = context
         self._write = self._write_and_flush if flush else self._write_only
 
+    def output(self) -> None:
+        self._consume()
+
     def _write_only(self, target: TextIO, data: str) -> None:
         with self._write_lock:
             target.write(data)
@@ -27,9 +30,6 @@ class CommandResult(ABC):
     @abstractmethod
     def _consume(self) -> None:
         pass
-
-    def output(self) -> None:
-        self._consume()
 
 
 class PipeCommandResult(CommandResult):

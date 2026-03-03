@@ -8,6 +8,10 @@
 
 set -e # Exit early if any commands fail
 
+PARENT_PATH=$(cd "$(dirname "$0")" ; pwd -P)
+
+export PYTHONPATH=$PARENT_PATH
+
 # Copied from .codecrafters/run.sh
 #
 # - Edit this to change how your program runs locally
