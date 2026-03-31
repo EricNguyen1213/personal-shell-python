@@ -21,6 +21,7 @@ class Commands(Enum):
     PWD = "pwd"
     CD = "cd"
     HISTORY = "history"
+    JOBS = "jobs"
 
     @classmethod
     def get_commands(cls) -> list[str]:
@@ -61,6 +62,7 @@ class CommandLibrary:
             Commands.PWD: self.handle_pwd,
             Commands.CD: self.handle_cd,
             Commands.HISTORY: self.handle_history,
+            Commands.JOBS: self.handle_jobs,
         }
         self.history_flags = {
             Channel.READ_MODE: self._read_history,
@@ -173,6 +175,10 @@ class CommandLibrary:
                 stderr.append(f"history: Invalid Input: {flag}")
 
         return PipeCommandResult(context, stdout=history_list, stderr=stderr)
+
+    # type Command Case
+    def handle_jobs(self, context: Redirection, _) -> CommandResult:
+        return PipeCommandResult(context, stdout=[""])
 
     # Custom Or Not Found Exec Case
     def handle_custom_exec_pipe(
